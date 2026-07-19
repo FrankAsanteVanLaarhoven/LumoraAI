@@ -20,6 +20,7 @@ export interface CrawlOptions {
   depth?: number;
   limit?: number;
   sameOrigin?: boolean;
+  render?: boolean;
 }
 
 export interface CrawlResult {

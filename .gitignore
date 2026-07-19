@@ -9,6 +9,9 @@
 .env
 .env*.local
 
+# runtime data (persistent audit log)
+/data
+
 # misc
 *.log
 .DS_Store

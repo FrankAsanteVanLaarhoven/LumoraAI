@@ -64,6 +64,11 @@ function ExtractView({ page }: { page: PageResult }) {
         <div className="panel">
           <div className="panel-body pad">
             <b>{page.title}</b>
+            {page.rendered && (
+              <span className="badge info" style={{ marginLeft: 8 }}>
+                JS-rendered
+              </span>
+            )}
             <div className="mono muted-txt" style={{ fontSize: '.75rem', marginTop: 4 }}>
               {page.finalUrl ?? page.url}
             </div>
@@ -245,6 +250,7 @@ export default function Workbench() {
   const [crawl, setCrawl] = useState<CrawlResult | null>(null);
   const [recon, setRecon] = useState<ReconResult | null>(null);
   const [selected, setSelected] = useState(0);
+  const [renderJs, setRenderJs] = useState(false);
 
   const isOsint = mode === 'osint';
 
@@ -267,9 +273,9 @@ export default function Workbench() {
       const endpoint = mode === 'extract' ? '/api/extract' : mode === 'crawl' ? '/api/crawl' : '/api/osint';
       const payload =
         mode === 'extract'
-          ? { url: input, authorized }
+          ? { url: input, authorized, render: renderJs }
           : mode === 'crawl'
-            ? { url: input, authorized, depth, limit }
+            ? { url: input, authorized, depth, limit, render: renderJs }
             : { domain: input, authorized };
       const res = await fetch(endpoint, {
         method: 'POST',
@@ -296,15 +302,10 @@ export default function Workbench() {
 
   return (
     <div className="wb">
-      <div className="wb-brand">
-        <span className="brand-mark" />
-        <b>
-          LUMORA<span>AI</span>
-        </b>
-      </div>
+      <h1 className="wb-title">Workbench</h1>
       <p className="wb-tag">
-        Ethical web-data extraction &amp; OSINT — robots-respecting, SSRF-guarded, authorization-gated,
-        audited.
+        Extract a page, crawl a site, or run OSINT recon — robots-respecting, SSRF-guarded,
+        authorization-gated, audited.
       </p>
 
       <div className="wb-form">
@@ -347,6 +348,13 @@ export default function Workbench() {
             </>
           )}
         </div>
+
+        {!isOsint && (
+          <label className="authz" style={{ paddingTop: 0 }}>
+            <input type="checkbox" checked={renderJs} onChange={(e) => setRenderJs(e.target.checked)} />
+            Render JavaScript (headless browser) — for dynamic / SPA pages
+          </label>
+        )}
 
         <div className="row">
           <input

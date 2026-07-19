@@ -31,9 +31,11 @@ makes this *ethical* rather than a “stealth” scraper.
 
 - **Extract** a single URL → title, clean Markdown, plain text, `<meta>` map, and absolute links.
 - **Crawl** a site (bounded depth/page-count, same-origin by default) with the same per-request governance.
+- **Dynamic rendering** — optional headless-browser rendering for JavaScript / SPA pages (`render: true`). Uses the **honest User-Agent** and still enforces robots.txt — it reads legitimate JS content, it does not circumvent access controls or detection.
 - **OSINT recon** on a domain from **public sources only** — DNS records, RDAP (registry) data, and passive subdomain discovery from Certificate Transparency logs. No scanning, no brute forcing.
 - Honest `User-Agent` that identifies the crawler and points at this repo.
-- A minimal workbench UI plus a JSON API.
+- **Control-plane UI** — Workbench · Activity (live audit) · Governance — plus a JSON API.
+- **Persistent audit** — append-only log at `data/audit.jsonl`, surviving restarts.
 
 ## Getting started
 
@@ -44,12 +46,14 @@ npm install
 npm run dev        # http://localhost:3000  (falls back if in use)
 ```
 
+> **JS rendering** needs a Chromium once: `npx playwright install chromium`. Without it, `render: true` degrades gracefully with a clear message (static fetch still works).
+
 ## API
 
 | Route | Method | Body | Description |
 | --- | --- | --- | --- |
-| `/api/extract` | POST | `{ url, authorized: true }` | Extract one page |
-| `/api/crawl` | POST | `{ url, authorized: true, depth?, limit?, sameOrigin? }` | Bounded site crawl |
+| `/api/extract` | POST | `{ url, authorized: true, render? }` | Extract one page (`render: true` = headless browser) |
+| `/api/crawl` | POST | `{ url, authorized: true, depth?, limit?, sameOrigin?, render? }` | Bounded site crawl |
 | `/api/osint` | POST | `{ domain, authorized: true }` | Passive domain recon (DNS + RDAP + CT subdomains) |
 | `/api/audit` | GET | `?n=` | Recent audit entries |
 
@@ -68,26 +72,28 @@ curl -X POST http://localhost:3000/api/extract \
 src/
   app/
     page.tsx  layout.tsx  globals.css  error.tsx  not-found.tsx
+    activity/page.tsx  governance/page.tsx        # control-plane sections
     api/extract/route.ts  api/crawl/route.ts  api/osint/route.ts  api/audit/route.ts
-  components/Workbench.tsx
+  components/Workbench.tsx  Shell.tsx             # workbench + control-plane shell
   lib/
     ua.ts         # honest User-Agent
     ssrf.ts       # private-address guard (per redirect hop)
     robots.ts     # robots.txt fetch + parse + longest-match matcher
     ratelimit.ts  # polite per-host limiter
     fetcher.ts    # SSRF-guarded fetch, size cap, timeout
+    render.ts     # headless-browser JS rendering (playwright-core, honest UA)
     extract.ts    # HTML -> Markdown/text/meta/links (cheerio + turndown)
-    crawl.ts      # single-page + bounded site crawl
-    audit.ts      # append-only audit log
+    crawl.ts      # single-page + bounded site crawl (static or rendered)
+    audit.ts      # append-only audit log, persisted to data/audit.jsonl
     osint/        # domain recon: dns, rdap, certs (CT), recon, domain-validate
 tests/            # Vitest: robots matcher, SSRF classifier, extraction, domain-validate
 ```
 
 ## Roadmap
 
-- **JS rendering** (optional, via a headless browser) for dynamic pages — pluggable, off by default.
-- **Control-plane** UI: job scheduler, results browser, and a governance panel (allowlist, attestations, audit).
+- **Job scheduler & results browser** in the control plane (persist crawl/extract results, not just the audit trail).
 - **OSINT depth**: passive DNS history and additional public registries (all read-only).
+- **DB-backed audit** for multi-node deployments (file-backed today).
 
 ## Testing
 

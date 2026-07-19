@@ -17,14 +17,14 @@ export async function POST(req: NextRequest) {
   if (!url) return Response.json({ error: 'url is required' }, { status: 400 });
 
   if (body.authorized !== true) {
-    audit('extract', url, 'refused', 'missing authorization attestation');
+    await audit('extract', url, 'refused', 'missing authorization attestation');
     return Response.json(
       { error: 'authorization attestation required — set "authorized": true to confirm you are permitted to fetch this target' },
       { status: 403 },
     );
   }
 
-  const page = await extractOne(url);
-  audit('extract', page.finalUrl ?? url, page.ok ? 'ok' : 'blocked', page.error);
+  const page = await extractOne(url, body.render === true);
+  await audit('extract', page.finalUrl ?? url, page.ok ? 'ok' : 'blocked', page.error);
   return Response.json({ page, ts: Date.now() });
 }

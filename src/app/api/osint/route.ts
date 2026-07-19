@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
   if (!domain) return Response.json({ error: 'a valid domain is required (e.g. example.com)' }, { status: 400 });
 
   if (body.authorized !== true) {
-    audit('osint', domain, 'refused', 'missing authorization attestation');
+    await audit('osint', domain, 'refused', 'missing authorization attestation');
     return Response.json(
       { error: 'authorization attestation required — set "authorized": true to confirm you may profile this domain' },
       { status: 403 },
@@ -26,6 +26,6 @@ export async function POST(req: NextRequest) {
   }
 
   const recon = await reconDomain(domain);
-  audit('osint', domain, 'ok', `${recon.subdomains.length} subdomains, ${recon.dns.a.length} A records`);
+  await audit('osint', domain, 'ok', `${recon.subdomains.length} subdomains, ${recon.dns.a.length} A records`);
   return Response.json({ recon, ts: Date.now() });
 }

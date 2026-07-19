@@ -5,6 +5,7 @@ import { safeFetch } from './fetcher';
 import { checkRobots } from './robots';
 import { politeWait } from './ratelimit';
 import { extractFromHtml } from './extract';
+import { renderHtml } from './render';
 import type { PageResult, CrawlOptions, CrawlResult } from './types';
 
 const MAX_DEPTH = 3;
@@ -20,7 +21,7 @@ function normalize(u: string): string {
   }
 }
 
-export async function extractOne(url: string): Promise<PageResult> {
+export async function extractOne(url: string, render = false): Promise<PageResult> {
   const fetchedAt = new Date().toISOString();
   const base: PageResult = {
     url,
@@ -33,7 +34,7 @@ export async function extractOne(url: string): Promise<PageResult> {
     links: [],
     bytes: 0,
     fetchedAt,
-    rendered: false,
+    rendered: render,
   };
 
   const robots = await checkRobots(url).catch(() => null);
@@ -41,6 +42,14 @@ export async function extractOne(url: string): Promise<PageResult> {
   if (!robots.allowed) return { ...base, error: robots.reason };
 
   await politeWait(new URL(url).hostname, robots.crawlDelay);
+
+  // Dynamic path: render with a headless browser (honest UA, robots already checked).
+  if (render) {
+    const r = await renderHtml(url);
+    if ('error' in r) return { ...base, error: r.error };
+    const ext = extractFromHtml(r.html, r.finalUrl);
+    return { ...base, finalUrl: r.finalUrl, status: 200, ok: true, bytes: Buffer.byteLength(r.html), ...ext };
+  }
 
   const res = await safeFetch(url);
   if (!res.ok) {
@@ -58,6 +67,7 @@ export async function crawlSite(seed: string, opts: CrawlOptions = {}): Promise<
   const depth = Math.min(Math.max(0, opts.depth ?? 1), MAX_DEPTH);
   const limit = Math.min(Math.max(1, opts.limit ?? 10), MAX_PAGES);
   const sameOrigin = opts.sameOrigin ?? true;
+  const render = opts.render ?? false;
 
   let seedOrigin = '';
   try {
@@ -74,7 +84,7 @@ export async function crawlSite(seed: string, opts: CrawlOptions = {}): Promise<
 
   while (queue.length && pages.length < limit) {
     const { url, d } = queue.shift()!;
-    const page = await extractOne(url);
+    const page = await extractOne(url, render);
     if (page.ok) pages.push(page);
     else skipped.push({ url, reason: page.error ?? 'failed' });
 
