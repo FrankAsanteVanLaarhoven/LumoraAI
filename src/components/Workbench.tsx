@@ -2,8 +2,9 @@
 
 import { useState, type ReactNode } from 'react';
 import type { PageResult, CrawlResult } from '@/lib/types';
+import type { ReconResult } from '@/lib/osint/types';
 
-type Mode = 'extract' | 'crawl';
+type Mode = 'extract' | 'crawl' | 'osint';
 
 function hostOf(u: string): string {
   try {
@@ -120,9 +121,121 @@ function ExtractView({ page }: { page: PageResult }) {
   );
 }
 
+function dnsRow(label: string, values: string[]): ReactNode {
+  if (!values.length) return null;
+  return (
+    <tr key={label}>
+      <td>{label}</td>
+      <td className="mono" style={{ whiteSpace: 'pre-wrap' }}>
+        {values.join('\n')}
+      </td>
+    </tr>
+  );
+}
+
+function ReconView({ recon }: { recon: ReconResult }) {
+  const d = recon.dns;
+  const rd = recon.rdap;
+  return (
+    <>
+      <div className="tiles">
+        <Tile label="A / AAAA" value={d.a.length + d.aaaa.length} />
+        <Tile label="Subdomains" value={recon.subdomains.length} />
+        <Tile label="Nameservers" value={d.ns.length || rd.nameservers.length} />
+        <Tile label="Registrar" value={rd.registrar ?? '—'} />
+      </div>
+
+      <div className="gov">
+        {recon.sources.map((s) => (
+          <span key={s.name} className={`badge ${s.ok ? 'ok' : 'muted'}`}>
+            {s.name}
+            {s.detail ? `: ${s.detail}` : ''}
+          </span>
+        ))}
+      </div>
+
+      <div className="panel">
+        <div className="panel-head">
+          <h2 className="panel-title">DNS</h2>
+        </div>
+        <table className="kv">
+          <tbody>
+            {dnsRow('A', d.a)}
+            {dnsRow('AAAA', d.aaaa)}
+            {dnsRow('MX', d.mx)}
+            {dnsRow('NS', d.ns)}
+            {dnsRow('CNAME', d.cname)}
+            {dnsRow('TXT', d.txt)}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="panel">
+        <div className="panel-head">
+          <h2 className="panel-title">Registration (RDAP)</h2>
+        </div>
+        <table className="kv">
+          <tbody>
+            <tr>
+              <td>registrar</td>
+              <td>{rd.registrar ?? '—'}</td>
+            </tr>
+            <tr>
+              <td>status</td>
+              <td className="mono">{rd.status.join(', ') || '—'}</td>
+            </tr>
+            <tr>
+              <td>created</td>
+              <td className="mono">{rd.created ?? '—'}</td>
+            </tr>
+            <tr>
+              <td>updated</td>
+              <td className="mono">{rd.updated ?? '—'}</td>
+            </tr>
+            <tr>
+              <td>expires</td>
+              <td className="mono">{rd.expires ?? '—'}</td>
+            </tr>
+            <tr>
+              <td>nameservers</td>
+              <td className="mono" style={{ whiteSpace: 'pre-wrap' }}>
+                {rd.nameservers.join('\n') || '—'}
+              </td>
+            </tr>
+            {rd.error && (
+              <tr>
+                <td>note</td>
+                <td className="err">{rd.error}</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {recon.subdomains.length > 0 && (
+        <div className="panel">
+          <div className="panel-head">
+            <h2 className="panel-title">Subdomains ({recon.subdomains.length})</h2>
+            <div className="panel-actions">
+              <CopyButton text={recon.subdomains.join('\n')} />
+            </div>
+          </div>
+          <div className="panel-body pad" style={{ maxHeight: 300, overflow: 'auto' }}>
+            {recon.subdomains.map((s, i) => (
+              <div key={i} className="mono" style={{ fontSize: '.75rem', padding: '2px 0' }}>
+                {s}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 export default function Workbench() {
   const [mode, setMode] = useState<Mode>('extract');
-  const [url, setUrl] = useState('');
+  const [input, setInput] = useState('');
   const [authorized, setAuthorized] = useState(false);
   const [depth, setDepth] = useState(1);
   const [limit, setLimit] = useState(10);
@@ -130,26 +243,34 @@ export default function Workbench() {
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState<PageResult | null>(null);
   const [crawl, setCrawl] = useState<CrawlResult | null>(null);
+  const [recon, setRecon] = useState<ReconResult | null>(null);
   const [selected, setSelected] = useState(0);
+
+  const isOsint = mode === 'osint';
 
   async function run() {
     setError(null);
     setPage(null);
     setCrawl(null);
+    setRecon(null);
     setSelected(0);
-    if (!url.trim()) {
-      setError('Enter a URL.');
+    if (!input.trim()) {
+      setError(isOsint ? 'Enter a domain.' : 'Enter a URL.');
       return;
     }
     if (!authorized) {
-      setError('Confirm you are authorized to fetch this target.');
+      setError('Confirm you are authorized to profile this target.');
       return;
     }
     setLoading(true);
     try {
-      const endpoint = mode === 'extract' ? '/api/extract' : '/api/crawl';
+      const endpoint = mode === 'extract' ? '/api/extract' : mode === 'crawl' ? '/api/crawl' : '/api/osint';
       const payload =
-        mode === 'extract' ? { url, authorized } : { url, authorized, depth, limit };
+        mode === 'extract'
+          ? { url: input, authorized }
+          : mode === 'crawl'
+            ? { url: input, authorized, depth, limit }
+            : { domain: input, authorized };
       const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -161,7 +282,8 @@ export default function Workbench() {
         return;
       }
       if (mode === 'extract') setPage(json.page);
-      else setCrawl(json.result);
+      else if (mode === 'crawl') setCrawl(json.result);
+      else setRecon(json.recon);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'request failed');
     } finally {
@@ -170,6 +292,7 @@ export default function Workbench() {
   }
 
   const selPage = crawl?.pages[selected];
+  const runLabel = loading ? 'Working…' : mode === 'extract' ? 'Extract' : mode === 'crawl' ? 'Crawl' : 'Recon';
 
   return (
     <div className="wb">
@@ -192,6 +315,9 @@ export default function Workbench() {
             </button>
             <button className={mode === 'crawl' ? 'on' : ''} onClick={() => setMode('crawl')}>
               Crawl site
+            </button>
+            <button className={mode === 'osint' ? 'on' : ''} onClick={() => setMode('osint')}>
+              OSINT recon
             </button>
           </div>
           {mode === 'crawl' && (
@@ -226,27 +352,38 @@ export default function Workbench() {
           <input
             className="grow"
             type="text"
-            placeholder="https://example.com/article"
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
+            placeholder={isOsint ? 'example.com' : 'https://example.com/article'}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && run()}
           />
           <button className="btn primary" onClick={run} disabled={loading}>
-            {loading ? 'Working…' : mode === 'extract' ? 'Extract' : 'Crawl'}
+            {runLabel}
           </button>
         </div>
 
         <label className="authz">
           <input type="checkbox" checked={authorized} onChange={(e) => setAuthorized(e.target.checked)} />
-          I am authorized to fetch this target and will respect its terms.
+          I am authorized to profile this target and will respect its terms.
         </label>
 
         <div className="gov">
-          <span className="badge ok">robots.txt enforced</span>
-          <span className="badge ok">rate-limited</span>
-          <span className="badge ok">SSRF-guarded</span>
-          <span className="badge info">audited</span>
-          <span className="badge muted">no evasion · no proxies</span>
+          {isOsint ? (
+            <>
+              <span className="badge ok">public sources only</span>
+              <span className="badge ok">passive</span>
+              <span className="badge info">audited</span>
+              <span className="badge muted">no scanning · no brute force</span>
+            </>
+          ) : (
+            <>
+              <span className="badge ok">robots.txt enforced</span>
+              <span className="badge ok">rate-limited</span>
+              <span className="badge ok">SSRF-guarded</span>
+              <span className="badge info">audited</span>
+              <span className="badge muted">no evasion · no proxies</span>
+            </>
+          )}
         </div>
       </div>
 
@@ -255,9 +392,14 @@ export default function Workbench() {
           <div className="panel-body pad err">{error}</div>
         </div>
       )}
-      {loading && <div className="spin">Fetching politely (honoring crawl-delay)…</div>}
+      {loading && (
+        <div className="spin">
+          {isOsint ? 'Querying DNS, RDAP, and certificate-transparency logs…' : 'Fetching politely (honoring crawl-delay)…'}
+        </div>
+      )}
 
       {page && <ExtractView page={page} />}
+      {recon && <ReconView recon={recon} />}
 
       {crawl && (
         <>

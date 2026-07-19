@@ -31,6 +31,7 @@ makes this *ethical* rather than a “stealth” scraper.
 
 - **Extract** a single URL → title, clean Markdown, plain text, `<meta>` map, and absolute links.
 - **Crawl** a site (bounded depth/page-count, same-origin by default) with the same per-request governance.
+- **OSINT recon** on a domain from **public sources only** — DNS records, RDAP (registry) data, and passive subdomain discovery from Certificate Transparency logs. No scanning, no brute forcing.
 - Honest `User-Agent` that identifies the crawler and points at this repo.
 - A minimal workbench UI plus a JSON API.
 
@@ -49,6 +50,7 @@ npm run dev        # http://localhost:3000  (falls back if in use)
 | --- | --- | --- | --- |
 | `/api/extract` | POST | `{ url, authorized: true }` | Extract one page |
 | `/api/crawl` | POST | `{ url, authorized: true, depth?, limit?, sameOrigin? }` | Bounded site crawl |
+| `/api/osint` | POST | `{ domain, authorized: true }` | Passive domain recon (DNS + RDAP + CT subdomains) |
 | `/api/audit` | GET | `?n=` | Recent audit entries |
 
 `authorized: true` is a required attestation — without it the request is refused
@@ -66,7 +68,7 @@ curl -X POST http://localhost:3000/api/extract \
 src/
   app/
     page.tsx  layout.tsx  globals.css  error.tsx  not-found.tsx
-    api/extract/route.ts  api/crawl/route.ts  api/audit/route.ts
+    api/extract/route.ts  api/crawl/route.ts  api/osint/route.ts  api/audit/route.ts
   components/Workbench.tsx
   lib/
     ua.ts         # honest User-Agent
@@ -77,14 +79,15 @@ src/
     extract.ts    # HTML -> Markdown/text/meta/links (cheerio + turndown)
     crawl.ts      # single-page + bounded site crawl
     audit.ts      # append-only audit log
-tests/            # Vitest: robots matcher, SSRF classifier, extraction
+    osint/        # domain recon: dns, rdap, certs (CT), recon, domain-validate
+tests/            # Vitest: robots matcher, SSRF classifier, extraction, domain-validate
 ```
 
 ## Roadmap
 
 - **JS rendering** (optional, via a headless browser) for dynamic pages — pluggable, off by default.
-- **OSINT module** over public sources (DNS, RDAP/WHOIS, certificate transparency, passive subdomains).
 - **Control-plane** UI: job scheduler, results browser, and a governance panel (allowlist, attestations, audit).
+- **OSINT depth**: passive DNS history and additional public registries (all read-only).
 
 ## Testing
 
