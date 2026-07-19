@@ -1,5 +1,5 @@
-import { redirect } from 'next/navigation';
+import Workbench from '@/components/Workbench';
 
-export default function Home() {
-  redirect('/console/operations');
+export default function Page() {
+  return <Workbench />;
 }

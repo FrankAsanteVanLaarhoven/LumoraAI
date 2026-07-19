@@ -658,3 +658,141 @@ h3 {
     animation: none;
   }
 }
+
+/* ---- Workbench ------------------------------------------------------ */
+.wb {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 30px 24px 90px;
+}
+.wb-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+.wb-brand b {
+  letter-spacing: 0.18em;
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+.wb-brand b span {
+  color: var(--accent);
+}
+.wb-tag {
+  color: var(--text-dim);
+  font-size: 0.85rem;
+  margin: 0 0 22px;
+}
+.wb-form {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.grow {
+  flex: 1;
+  min-width: 240px;
+}
+input[type='text'],
+input[type='number'],
+select,
+textarea {
+  font-family: var(--mono);
+  font-size: 0.86rem;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--border-strong);
+  border-radius: 7px;
+  padding: 9px 11px;
+  width: 100%;
+}
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.seg {
+  display: inline-flex;
+  border: 1px solid var(--border-strong);
+  border-radius: 7px;
+  overflow: hidden;
+}
+.seg button {
+  background: transparent;
+  color: var(--text-dim);
+  border: none;
+  padding: 8px 14px;
+  font-family: var(--sans);
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+.seg button.on {
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+.authz {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
+.authz input {
+  width: auto;
+}
+.gov {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.gov .badge {
+  text-transform: none;
+}
+.md {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  line-height: 1.55;
+  color: var(--text);
+  max-height: 520px;
+  overflow: auto;
+  padding: 14px 16px;
+  margin: 0;
+}
+.kv {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+.kv td {
+  padding: 7px 14px;
+  border-bottom: 1px solid rgba(94, 130, 190, 0.08);
+  vertical-align: top;
+}
+.kv tr:last-child td {
+  border-bottom: none;
+}
+.kv td:first-child {
+  color: var(--text-faint);
+  width: 160px;
+  font-family: var(--mono);
+}
+.err {
+  color: var(--bad);
+}
+.spin {
+  color: var(--text-dim);
+  font-size: 0.85rem;
+  padding: 20px 2px;
+}
+a.link {
+  color: var(--accent);
+}
